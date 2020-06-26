@@ -129,26 +129,7 @@ for (i in 1:length(sp1)){ #loop through each species
   reg = "Continental"
   df <- d$index.raw
   ci <- d$RCI
-  # reg<- as.character(unique(d$Region))
-  # bcr= reg[grep('[0-9]',reg)]
-  # not.states <- c(bcr,"CAN", "US ", "SUR", "EAS", "CEN", "WES")
-  # states<- subset(reg,!(reg %in% not.states))
-  # df<- matrix(NA, length(states),maxyear)
-  # ci <- matrix(NA, length(states),maxyear)
-  # sp.states.i <- data.frame(aou=rep(aou.i, length(states)), cn=rep(sp,length(states)),loca=states)
-  # for (j in 1:length(states)){
-  #   states.j <- states[j]
-  #   cond<-d$Region==states.j
-  #   yr<-d$Year[cond]
-  #   temp <- ifelse(d$Median[cond]<=0,temp <- 0.01, temp<-d$Median[cond])
-  #   temp.ci <- d$RCI[cond]
-  #   df[j,yr]=temp
-  #   ci[j,yr]=temp.ci
-  # }
-  # df<- df[,c(5:maxyear)] #begin analysis in year 1970
-  # ci<-ci[,c(5:maxyear)] 
-  # # Quality Controls
-  ##### 1. Remove states where species is Highly Uncertain
+
   ############## defined as mean relative confidence index greater than 2
   w.out = which(sp.states.i$sp == aou.i)
   sp.states.i[w.out,"ave.ind"] <- mean(df,na.rm = T)
@@ -156,26 +137,41 @@ for (i in 1:length(sp1)){ #loop through each species
   sp.states.i[w.out,"RCI"] <- mean(ci,na.rm = T)
   sp.states.i[w.out,"Uncertain"] <- sp.states.i[w.out,"RCI"]>2|!is.finite(sp.states.i[w.out,"RCI"])
   
-  # sp.states.i$ave.ind<- apply(df,1,mean, na.rm=T) # find ave index abundance for spp/states
-  # sp.states.i$max.ind<- apply(df,1,max, na.rm=T) # find max index abundance for spp/states
-  # sp.states.i$RCI <- apply(ci,1,mean)
-  # sp.states.i$Uncertain <- sp.states.i$RCI>2|!is.finite(sp.states.i$RCI)
-  # df<- df[sp.states.i$Uncertain==FALSE,]
-  # sp.states.i<-sp.states.i[sp.states.i$Uncertain==FALSE,]
-  # if(nrow(sp.states.i)==0){
-  #   print(paste('All states highly uncertain for ', sp, '. Trends and projections not calculated.', sep=""))
-  #   next
-  # }
+
   df<-log(df)
   ###### MARSS #########
   mod.struc <- list(R='diagonal and equal', Q='diagonal and unequal')
   print(sp)
   mod.out <- MARSS(df, model=mod.struc,
                    control=list(conv.test.slope.tol=0.1,maxit=5000, trace=1, allow.degen=TRUE))
-  mod.out.CI=MARSSparamCIs(mod.out)
-  ## Bootstrap those CI's if they come out funky
-  #if(all(!is.finite(mod.out.CI$par.upCI$Q))) mod.out.CI=MARSSparamCIs(mod.out, method = "parametric", nboot=100)
   
+
+# ad hoc fix for process variance estimates = 0 ---------------------------
+
+#### solution here is to use the geometric mean ratio of process variance to trend = 0.06151012
+  ### this was calculated before this loop was added, using only the 395 species for which
+  ### non-zero values of Q were estimated in the long-term process
+  
+  if(mod.out$par$Q < 0.0001){
+  mq <- matrix(exp(-3),nrow = 1,ncol = 1)
+  mq <- matrix(0.06151012 * mod.out$par$U,nrow = 1,ncol = 1)
+  
+  mod.struc <- list(R='diagonal and equal', Q=mq)
+  
+  mod.out <- MARSS(df, model=mod.struc,
+                   control=list(conv.test.slope.tol=0.1,maxit=5000, trace=1, allow.degen=TRUE))
+  
+  mod.out.CI=MARSSparamCIs(mod.out)
+  
+  mod.out$par$Q <- 0.06151012 * mod.out$par$U
+  mod.out.CI$par.lowCI$Q <- NA
+  mod.out.CI$par.upCI$Q<- NA
+  
+  }else{
+  
+  mod.out.CI=MARSSparamCIs(mod.out)
+  }
+
   ### Add MARSS results to output
   sp.states.i[w.out,"conv"] <- mod.out$convergence
   sp.states.i[w.out,"u"] <- mod.out$par$U
@@ -292,9 +288,6 @@ dev.off()
 
 
 
-
-
-
 # short-term projections --------------------------------------------------
 
 spp.ind <- spp.ind12
@@ -327,6 +320,8 @@ for (i in 1:length(sp1)){ #loop through each species
   ci <- d$RCI
   
    w.out = which(sp.states.i$sp == aou.i)
+   w.out_long = which(sp.states.i_long$sp == aou.i)
+   
   sp.states.i[w.out,"ave.ind"] <- mean(df,na.rm = T)
   sp.states.i[w.out,"max.ind"] <- max(df,na.rm = T)
   sp.states.i[w.out,"RCI"] <- mean(ci,na.rm = T)
@@ -338,9 +333,32 @@ for (i in 1:length(sp1)){ #loop through each species
   print(sp)
   mod.out <- MARSS(df, model=mod.struc,
                    control=list(conv.test.slope.tol=0.1,maxit=5000, trace=1, allow.degen=TRUE))
-  mod.out.CI=MARSSparamCIs(mod.out)
-  ## Bootstrap those CI's if they come out funky
-  #if(all(!is.finite(mod.out.CI$par.upCI$Q))) mod.out.CI=MARSSparamCIs(mod.out, method = "parametric", nboot=100)
+  
+  # ad hoc fix for process variance estimates = 0 ---------------------------
+  
+  #### solution here is to use the geometric mean ratio of process variance to trend = 0.06151012
+  ### this was calculated before this loop was added, using only the 395 species for which
+  ### non-zero values of Q were estimated in the long-term process above
+  
+  if(mod.out$par$Q < 0.0001){
+    mq <- matrix(exp(-3),nrow = 1,ncol = 1)
+    mq <- matrix(0.06151012 * mod.out$par$U,nrow = 1,ncol = 1)
+    
+    mod.struc <- list(R='diagonal and equal', Q=mq)
+    
+    mod.out <- MARSS(df, model=mod.struc,
+                     control=list(conv.test.slope.tol=0.1,maxit=5000, trace=1, allow.degen=TRUE))
+    
+    mod.out.CI=MARSSparamCIs(mod.out)
+    
+    mod.out$par$Q <- 0.06151012 * mod.out$par$U
+    mod.out.CI$par.lowCI$Q <- NA
+    mod.out.CI$par.upCI$Q<- NA
+    
+  }else{
+    
+    mod.out.CI=MARSSparamCIs(mod.out)
+  }
   
   ### Add MARSS results to output
   sp.states.i[w.out,"conv"] <- mod.out$convergence
