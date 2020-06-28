@@ -561,7 +561,8 @@ for (i in 1:length(sp1)){ #loop through each species
 # sink()
 spp.ind$Prediction_year = spp.ind$year + 50
 write.csv(spp.ind,"output/original data w annual predictions short-term.csv")
-pdf("output/Original trajectories and half-life projections short-term.pdf")
+pdf("output/Original trajectories and half-life projections short-term.pdf",
+    width = 11, height = 8)
 for(i in 1:length(plotsout)){
   print(plotsout[[i]])
 }
