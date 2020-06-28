@@ -4,17 +4,19 @@
 orig = read.csv("output/original trajectories extinction risks_pre_adhoc.csv")
 orig = orig[which(orig$Q > 0.00001 & orig$R > 0.00001),]
 q = orig$Q
-r = orig$R/2 ## half of the observation variance see rationale below
+r = orig$R ## half of the observation variance see rationale below
+r2 = orig$R/2 ## half of the observation variance see rationale below
 u = abs(orig$U)
 
 lq = log(q)
+lr2 = log(r2)
 lr = log(r)
-plot(lr,lq)
+plot(lr2,lq)
 abline(0,1)
 # approximately linear and very close to 1:1 
 # probably very close to 1, since we know there is error in both estimates
 ## therefore the mean of the ratio of the logs is a reasonable way to approximate one from the other
-fix = mean(lq/lr)
+fix = mean(lq/lr2)
 ## so on average across species, on the log scale, the MARSS function is partitioning half of the variance to 
 ## process and half to observation
 ## this relatively equal split is not surprising given that the model has no data that support
@@ -24,6 +26,9 @@ fix = mean(lq/lr)
 ### allocated to each process and observation
 ### to fix the zero-estimated process variance, our best estimate is approximately half of the variance estimate
 
+
+m1 = lm(lq ~ lr2)
+abline(m1)
 
 ### function to fix values of q, based on half of r
 fix_fx <- function(r){
@@ -305,12 +310,12 @@ for (i in 1:length(sp1)){ #loop through each species
       # geom_line(aes(y=HL_30),colour = cl.hl30) +
       # geom_line(aes(y=HL_50),colour = cl.hl50) +
       # geom_line(aes(y=HL_70),colour = cl.hl70) +
-      annotate(geom = "text",x = lbl$year,y = lbl$QE,label = "QE",colour = cl.qe50)+
-      annotate(geom = "text",x = lbl$year,y = lbl$HL_30,label = "HL_30",colour = cl.hl30)+
-      annotate(geom = "text",x = lbl$year,y = lbl$HL_50,label = "HL_50",colour = cl.hl50)+
-      annotate(geom = "text",x = lbl$year,y = lbl$HL_70,label = "HL_70",colour = cl.hl70)+
-      annotate(geom = "text",x = 2010,y = upy*1.02,label = "Probability = 1.0",colour = cl.hl70)+
-      annotate(geom = "line",x = c(2000:2020),y = rep(upy,21),colour = cl.hl70)+
+      # annotate(geom = "text",x = lbl$year,y = lbl$QE,label = "QE",colour = cl.qe50)+
+      # annotate(geom = "text",x = lbl$year,y = lbl$HL_30,label = "P_30",colour = grey(0.5))+
+      # annotate(geom = "text",x = lbl$year,y = lbl$HL_50,label = "P_50",colour = grey(0.5))+
+      # annotate(geom = "text",x = lbl$year,y = lbl$HL_70,label = "P_70",colour = grey(0.5))+
+      # annotate(geom = "text",x = 2010,y = upy*1.02,label = "Probability = 1.0",colour = cl.hl70)+
+      # annotate(geom = "line",x = c(2000:2020),y = rep(upy,21),colour = cl.hl70)+
       scale_y_continuous(limits = c(0,upy*1.06))+
       
       ylab('Original index') + ggtitle(sp)
@@ -323,7 +328,7 @@ for (i in 1:length(sp1)){ #loop through each species
       scale_y_continuous(limits = c(0,1))+
     scale_color_viridis_d(end = 0.8)+
     
-    ylab('probability of decline') + ggtitle(sp)
+    ylab('probability of decline') + ggtitle(paste(sp,"prob of decline"))
   
   
   po <- p + pp
@@ -344,7 +349,7 @@ for (i in 1:length(sp1)){ #loop through each species
 # sink()
 spp.ind$Prediction_year = spp.ind$year + 50
 write.csv(spp.ind,"output/original data w annual predictions.csv")
-pdf("output/Original trajectories and half-life projections.pdf",
+pdf("output/Original trajectories and probability of decline projections.pdf",
     width = 11,height = 7)
 for(i in 1:length(plotsout)){
   print(plotsout[[i]])
@@ -355,6 +360,10 @@ dev.off()
 
 
 
+
+# grab the long-term process variance as ad-hoc substitute when it --------
+
+q_long <- sp.states.i[,c("species","Q")]
 
 
 
@@ -383,6 +392,7 @@ for (i in 1:length(sp1)){ #loop through each species
   ####  i<-round(runif(1,1,nrow(aou)),0) ### For Testing
   aou.i <- sp1[i]
   
+  q_fix <- q_long[which(q_long$species == aou.i),"Q"]
   worig <- which(spp.ind$English_Common_Name == aou.i & !is.na(spp.ind$index.raw))
   d <- spp.ind[worig,]
   
@@ -418,7 +428,7 @@ for (i in 1:length(sp1)){ #loop through each species
   
   
   if(mod.out$par$Q < 0.0001){
-    newq = fix_fx(mod.out$par$R)
+    newq = q_fix
     
     mq <- matrix(newq,nrow = 1,ncol = 1)
     
@@ -528,12 +538,12 @@ for (i in 1:length(sp1)){ #loop through each species
       # geom_line(aes(y=HL_30),colour = cl.hl30) +
       # geom_line(aes(y=HL_50),colour = cl.hl50) +
       # geom_line(aes(y=HL_70),colour = cl.hl70) +
-      annotate(geom = "text",x = lbl$year,y = lbl$QE,label = "QE",colour = cl.qe50)+
-      annotate(geom = "text",x = lbl$year,y = lbl$HL_30,label = "HL_30",colour = cl.hl30)+
-      annotate(geom = "text",x = lbl$year,y = lbl$HL_50,label = "HL_50",colour = cl.hl50)+
-      annotate(geom = "text",x = lbl$year,y = lbl$HL_70,label = "HL_70",colour = cl.hl70)+
-      annotate(geom = "text",x = 2010,y = upy*1.02,label = "Probability = 1.0",colour = cl.hl70)+
-      annotate(geom = "line",x = c(2005:2020),y = rep(upy,16),colour = cl.hl70)+
+      # annotate(geom = "text",x = lbl$year,y = lbl$QE,label = "QE",colour = cl.qe50)+
+      # annotate(geom = "text",x = lbl$year,y = lbl$HL_30,label = "P_30",colour = grey(0.5))+
+      # annotate(geom = "text",x = lbl$year,y = lbl$HL_50,label = "P_50",colour = grey(0.5))+
+      # annotate(geom = "text",x = lbl$year,y = lbl$HL_70,label = "P_70",colour = grey(0.5))+
+      # annotate(geom = "text",x = 2010,y = upy*1.02,label = "Probability = 1.0",colour = cl.hl70)+
+      # annotate(geom = "line",x = c(2005:2020),y = rep(upy,16),colour = cl.hl70)+
       scale_y_continuous(limits = c(0,upy*1.06))+
       
       ylab('Original index') + ggtitle(sp)
@@ -547,7 +557,7 @@ for (i in 1:length(sp1)){ #loop through each species
     scale_y_continuous(limits = c(0,1))+
     scale_color_viridis_d(end = 0.8)+
     
-    ylab('probability of decline') + ggtitle(sp)
+    ylab('probability of decline') + ggtitle(paste(sp,"prob of decline"))
   
   
   po <- p + pp
@@ -561,7 +571,7 @@ for (i in 1:length(sp1)){ #loop through each species
 # sink()
 spp.ind$Prediction_year = spp.ind$year + 50
 write.csv(spp.ind,"output/original data w annual predictions short-term.csv")
-pdf("output/Original trajectories and half-life projections short-term.pdf",
+pdf("output/Original trajectories and probability of decline projections short-term.pdf",
     width = 11, height = 8)
 for(i in 1:length(plotsout)){
   print(plotsout[[i]])
