@@ -23,8 +23,8 @@ fix = mean(lq/lr2)
 ## a clear partition
 
 ### Given that this relationship is for trajectories where some of the error has been
-### allocated to each process and observation
-### to fix the zero-estimated process variance, our best estimate is approximately half of the variance estimate
+### allocated to each of process and observation
+### to fix the zero-estimated process variance, a reasonable estimate is approximately half of the observation variance estimate
 
 
 m1 = lm(lq ~ lr2)
@@ -40,7 +40,7 @@ fix_fx <- function(r){
 res.dir.gen <- 'results'
 
 #############  Load Data  ################################################################ 
-spp.indall <- read.csv('C:/Estimating_Change_in_NorthAmerican_Birds/Rosenberg et al annual indices of abundance.csv',stringsAsFactors = F) 
+spp.indall <- read.csv('Rosenberg et al annual indices of abundance.csv',stringsAsFactors = F) 
 
 
 # lookup file relating AOU# to species name
@@ -118,8 +118,8 @@ HL=function(qeyrs,u,q,PD){  #Quasi-Extinction risk estimate based on Dennis et a
 ##########################################################################################
 out.names[3] <- 'loca'
 #Set up Datafile to export results at each loop
-write.table(t(out.names),file=paste(res.dir.gen, '/sp.state.csv', sep=''), quote=FALSE, 
-            sep=',', row.names=FALSE, col.names=FALSE)
+# write.table(t(out.names),file=paste(res.dir.gen, '/sp.state.csv', sep=''), quote=FALSE, 
+#             sep=',', row.names=FALSE, col.names=FALSE)
 
 spp.indall$English_Common_Name <- as.character(spp.indall$species)
 spp.indall$yr <- spp.indall$year-1969
@@ -154,6 +154,9 @@ names(plotsout) <- sp1
 # Long-term loop ----------------------------------------------------------
 
 projj_out <- NULL
+
+
+adhoc = FALSE
 
 for (i in 1:length(sp1)){ #loop through each species
   
@@ -200,7 +203,7 @@ for (i in 1:length(sp1)){ #loop through each species
   ### this was calculated before this loop was added, using only the 395 species for which
   ### non-zero values of Q were estimated in the long-term process
   
-  if(mod.out$par$Q < 0.0001){
+  if(mod.out$par$Q < 0.0001 & adhoc){
   newq = fix_fx(mod.out$par$R)
   
   mq <- matrix(newq,nrow = 1,ncol = 1)
@@ -338,7 +341,9 @@ for (i in 1:length(sp1)){ #loop through each species
   projj_out <- bind_rows(projj_out,projj_sp)
   
   
-  write.csv(sp.states.i,"output/original trajectories extinction risks.csv")
+  if(adhoc){write.csv(sp.states.i,"output/original trajectories extinction risks.csv")}else{
+    write.csv(sp.states.i,"output/original trajectories extinction risks NOadhoc.csv")
+  }
   
   
 }
@@ -348,9 +353,15 @@ for (i in 1:length(sp1)){ #loop through each species
 
 # sink()
 spp.ind$Prediction_year = spp.ind$year + 50
-write.csv(spp.ind,"output/original data w annual predictions.csv")
-pdf("output/Original trajectories and probability of decline projections.pdf",
-    width = 11,height = 7)
+if(adhoc){write.csv(spp.ind,"output/original data w annual predictions.csv")}else{
+write.csv(spp.ind,"output/original data w annual predictions NOadhoc.csv")
+}
+
+if(adhoc){pdf("output/Original trajectories and probability of decline projections.pdf",
+    width = 11,height = 7)}else{
+      pdf("output/Original trajectories and probability of decline projections NOadhoc.pdf",
+          width = 11, height = 8)
+    }
 for(i in 1:length(plotsout)){
   print(plotsout[[i]])
 }
@@ -427,7 +438,7 @@ for (i in 1:length(sp1)){ #loop through each species
   ### non-zero values of Q were estimated in the long-term process above
   
   
-  if(mod.out$par$Q < 0.0001){
+  if(mod.out$par$Q < 0.0001 & adhoc){
     newq = q_fix
     
     mq <- matrix(newq,nrow = 1,ncol = 1)
@@ -566,13 +577,23 @@ for (i in 1:length(sp1)){ #loop through each species
   
   projj_out <- bind_rows(projj_out,projj_sp)
   
-  write.csv(sp.states.i,"output/original trajectories extinction risks short-term.csv")
-}
+  if(adhoc) {write.csv(sp.states.i,"output/original trajectories extinction risks short-term.csv")}else{
+    write.csv(sp.states.i,"output/original trajectories extinction risks short-term NOadhoc.csv")  
+  }
+
+    }
 # sink()
 spp.ind$Prediction_year = spp.ind$year + 50
-write.csv(spp.ind,"output/original data w annual predictions short-term.csv")
-pdf("output/Original trajectories and probability of decline projections short-term.pdf",
-    width = 11, height = 8)
+if(adhoc){write.csv(spp.ind,"output/original data w annual predictions short-term.csv")}else{
+  write.csv(spp.ind,"output/original data w annual predictions short-term NOadhoc.csv")
+}
+
+if(adhoc){
+  pdf("output/Original trajectories and probability of decline projections short-term.pdf",
+    width = 11, height = 8)}else{
+      pdf("output/Original trajectories and probability of decline projections short-term NOadhoc.pdf",
+          width = 11, height = 8)   
+    }
 for(i in 1:length(plotsout)){
   print(plotsout[[i]])
 }
