@@ -52,7 +52,11 @@ spp.ind <- spp.ind %>%
 
 stan_dat <- list(Y = nrow(df))
 sp = "Red Knot"
-for(sp in unique(spp.ind$species)){
+
+
+mod = stan_model("Changepoint3.stan")
+
+for(sp in unique(spp.ind$species)[1:10]){
   df = filter(spp.ind,species == sp,
               !is.na(lind))
   df <- df[order(df$yr),]
@@ -60,26 +64,33 @@ for(sp in unique(spp.ind$species)){
                    #zeros = c(0,0,0),
                    i = df$lind,
                    sdi = df$lsd)
-  t1 = Sys.time()
-  fit <- stan(
-    file = "Changepoint3.stan",  
+  #t1 = Sys.time()
+  fit <- sampling( 
+    object = mod,
     data = stan_dat,    
-    chains = 1,             
-    warmup = 1000,          
-    iter = 3000,            
-    cores = 1,              
-    refresh = 500,
-    control = list(adapt_delta = 0.99))         
-    
-  Sys.time()-t1
-    
-  plot(fit,pars = "mu")
+    chains = 3,             
+    warmup = 2000,          
+    iter = 4000,            
+    cores = 3,              
+    open_progress = F,
+    control = list(adapt_delta = 0.999,
+                   max_treedepth = 15),
+    verbose = F
+    )         
   
-  plot(fit,pars = "B")
-  plot(fit,pars = c("beta1","beta2"))
-  plot(fit,pars = c("alpha1","alpha2"))
-  pairs(fit,pars = c("beta1","beta2","alpha1","alpha2"))
-  print(fit)
+  launch_shinystan(fit)  
+  #Sys.time()-t1
+    
+  # plot(fit,pars = "mu")
+  # 
+  # plot(fit,pars = "B")
+  # plot(fit,pars = c("beta1","beta2"))
+  # plot(fit,pars = c("alpha1","alpha2"))
+  # pairs(fit,pars = c("beta1","beta2","alpha1","alpha2"))
+  # print(fit)
+  
+  extract(fit,parm)
+  
 }
 
 

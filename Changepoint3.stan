@@ -30,13 +30,13 @@ parameters {
 }
 
 transformed parameters {
-   //real betadif;
+   real betadif;
   real B[Y];
       
       for (n in 1:Y) {
-          B[n] = n < (Y-12) ? alpha1+beta1*n : alpha2+(beta2+beta1)*(n-(Y-13));
+          B[n] = n < (Y-12) ? alpha1+beta1*n : alpha2+(beta2)*(n-(Y-13));
       }
-      //betadif = beta2-beta1;
+      betadif = beta2-beta1;
 }
 
 
@@ -47,11 +47,11 @@ model {
  
   i ~ normal(mu, sdi);
   //the data-estimation model estimating the vector of annual indices accounting for the uncertainty
-  beta1 ~ normal(0,0.01); // early slope
-  beta2 ~ normal(0,0.01); // late slope
+  beta1 ~ normal(0,0.1); // early slope
+  beta2 ~ normal(0,0.1); // late slope
   sigma ~ normal(0,0.5);
-  alpha1 ~ normal(0,5); //intercept
-  alpha2 ~ normal(0,5); //intercept
+  alpha1 ~ normal(0,10); //intercept
+  alpha2 ~ normal(0,10); //intercept
 
 
 target += normal_lpdf(mu | B, sigma);
