@@ -27,6 +27,8 @@ parameters {
   real alpha1;
   //real alpha2;
   real<lower=0> sigma;
+  
+      real noise[Y];
 }
 
 transformed parameters {
@@ -35,7 +37,7 @@ transformed parameters {
   real B[Y];
       
       for (n in 1:Y) {
-          B[n] = n < (Y-12) ? alpha1+beta1*(n-(Y-12)) : alpha1+(beta2)*(n-(Y-12));
+          B[n] = n < (Y-12) ? alpha1+beta1*(n-(Y-12))+noise[n] : alpha1+(beta2)*(n-(Y-12))+noise[n];
       }
       betadif = beta2-beta1;
       beta_neg = step(-1*betadif);
@@ -47,16 +49,16 @@ transformed parameters {
 // and standard deviation 'sigma'.
 model {
  
-  i ~ normal(mu, sdi);
+  i ~ normal(B, sdi);
   //the data-estimation model estimating the vector of annual indices accounting for the uncertainty
   beta1 ~ normal(0,0.1); // early slope
   beta2 ~ normal(0,0.1); // late slope
   sigma ~ normal(0,0.5);
   alpha1 ~ normal(0,10); //intercept
-  //alpha2 ~ normal(0,10); //intercept
+  noise ~ normal(0,sigma); //error
 
 
-target += normal_lpdf(B | mu, sigma);
+
 }
 
 

@@ -7,6 +7,8 @@
 library(tidyverse)
 library(rstan)
 library(shinystan)
+library(tidybayes)
+library(ggforce)
 # Data - annual indices used in Rosenberg et al 2019 ----------------------
 
 spp.indall <- read.csv('Rosenberg et al annual indices of abundance.csv',stringsAsFactors = F) 
@@ -45,18 +47,22 @@ sp.states.i <- unique(spp.indall[,c("species","English_Common_Name","firstyear",
  
 spp.ind <- spp.indall
 
+
 spp.ind <- spp.ind %>% 
   mutate(lind = log(index.raw),
          lsd = (log(uci.raw)-log(lci.raw))/(1.96*2))
 
+meanlsd = mean(spp.ind$lsd,na.rm = T)
+spp.ind[which(is.na(spp.ind$lsd)),"lsd"] <- meanlsd
 
-stan_dat <- list(Y = nrow(df))
-sp = "Red Knot"
+#sp = "Red Knot"
 
 
-mod = stan_model("Changepoint3.stan")
+mod = stan_model("Changepoint4.stan")
 
-for(sp in unique(spp.ind$species)[1:10]){
+jj = 0
+for(sp in unique(spp.ind$species)[1:50]){
+  jj = jj+1
   df = filter(spp.ind,species == sp,
               !is.na(lind))
   df <- df[order(df$yr),]
@@ -69,8 +75,8 @@ for(sp in unique(spp.ind$species)[1:10]){
     object = mod,
     data = stan_dat,    
     chains = 3,             
-    warmup = 2000,          
-    iter = 4000,            
+    warmup = 3000,          
+    iter = 5000,            
     cores = 3,              
     open_progress = F,
     control = list(adapt_delta = 0.999,
@@ -88,15 +94,48 @@ for(sp in unique(spp.ind$species)[1:10]){
   # plot(fit,pars = c("alpha1","alpha2"))
   # pairs(fit,pars = c("beta1","beta2","alpha1","alpha2"))
   # print(fit)
+  outt <- as.data.frame(summary(fit,probs = c(0.025,0.05,0.1, 0.25, 0.50, 0.75,0.9,0.95, 0.975))$summary)
+  outt$parameter <- row.names(outt)
   
-  extract(fit,parm)
+  outt$species = sp
+  
+  if(jj == 1){
+    out = outt
+  }else{
+    out <- bind_rows(out,outt)
+  }
   
 }
 
+b_ <- filter(out,parameter %in% c(paste0("B[",1:53,"]")))
+
+mu_ <- filter(out,parameter %in% c(paste0("mu[",1:53,"]")))
+
+b_ <- mutate(b_,year = jags_dim(dat = b_, cl = "parameter",var = "B"),
+             est = "B")
+mu_ <- mutate(mu_,year = jags_dim(dat = mu_, cl = "parameter",var = "mu"),
+              est = "mu")
+
+b_mu = bind_rows(b_,mu_)
+
+names(b_mu)[which(grepl(names(b_mu),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(b_mu)[which(grepl(names(b_mu),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
 
 
+betadif <- filter(out,parameter %in% c("betadif"))
+p_betaneg <- filter(out,parameter %in% c("beta_neg"))
 
-
+npag <- ceiling(nrow(betadif)/12)
+pdf("output/changepoint_graphs.pdf",
+    height = 11,width = 8.5)
+for(ij in 1:npag){
+trajs <- ggplot(data = b_mu,aes(x = year,y = mean,group = est))+
+  geom_ribbon(aes(ymin = CL2.5,ymax = CL97.5,fill = est),alpha = 0.2)+
+  geom_line(aes(colour = est))+
+  scale_color_viridis_d(aesthetics = c("colour","fill"),direction = -1,end = 0.8,begin = 0.2)+
+  facet_wrap_paginate(facets = ~species,scales = "free_y",nrow = 4,ncol = 3,page = ij)
+print(trajs)
+}
+dev.off()
 
 
 
