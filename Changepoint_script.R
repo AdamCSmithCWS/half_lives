@@ -55,21 +55,23 @@ spp.ind <- spp.ind %>%
 meanlsd = mean(spp.ind$lsd,na.rm = T)
 spp.ind[which(is.na(spp.ind$lsd)),"lsd"] <- meanlsd
 
-#sp = "Red Knot"
+sp = "Red Knot"
 
 
-mod = stan_model("Changepoint4.stan")
+mod = stan_model("Changepoint3.stan")
 
 jj = 0
-for(sp in unique(spp.ind$species)[1:50]){
+for(sp in unique(spp.ind$species)){
   jj = jj+1
   df = filter(spp.ind,species == sp,
               !is.na(lind))
   df <- df[order(df$yr),]
   stan_dat <- list(Y = nrow(df),
-                   #zeros = c(0,0,0),
+                   Yb = 12,
                    i = df$lind,
-                   sdi = df$lsd)
+                   sdi = df$lsd,
+                   sig_mean = 0,
+                   sig_sd = 1)
   #t1 = Sys.time()
   fit <- sampling( 
     object = mod,
@@ -84,7 +86,7 @@ for(sp in unique(spp.ind$species)[1:50]){
     verbose = F
     )         
   
-  launch_shinystan(fit)  
+  #launch_shinystan(fit)  
   #Sys.time()-t1
     
   # plot(fit,pars = "mu")
@@ -111,28 +113,46 @@ b_ <- filter(out,parameter %in% c(paste0("B[",1:53,"]")))
 
 mu_ <- filter(out,parameter %in% c(paste0("mu[",1:53,"]")))
 
-b_ <- mutate(b_,year = jags_dim(dat = b_, cl = "parameter",var = "B"),
+source("utility_functions.R")
+b_ <- mutate(b_,yr = jags_dim(dat = b_, cl = "parameter",var = "B"),
              est = "B")
-mu_ <- mutate(mu_,year = jags_dim(dat = mu_, cl = "parameter",var = "mu"),
+mu_ <- mutate(mu_,yr = jags_dim(dat = mu_, cl = "parameter",var = "mu"),
               est = "mu")
 
 b_mu = bind_rows(b_,mu_)
+
+fyr_sp <- unique(spp.ind[,c("species","firstyear")])
+b_mu <- left_join(b_mu,fyr_sp,by = "species")
+b_mu$year <- b_mu$yr+(b_mu$firstyear-1)
 
 names(b_mu)[which(grepl(names(b_mu),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(b_mu)[which(grepl(names(b_mu),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
 
 
 betadif <- filter(out,parameter %in% c("betadif"))
 p_betaneg <- filter(out,parameter %in% c("beta_neg"))
+names(p_betaneg)[which(grepl(names(p_betaneg),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(p_betaneg)[which(grepl(names(p_betaneg),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
+names(betadif)[which(grepl(names(betadif),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(betadif)[which(grepl(names(betadif),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
 
-npag <- ceiling(nrow(betadif)/12)
+prob_annot <- select(p_betaneg,mean,species)
+bdif <- select(betadif,CL50,CL5,CL95,species)
+bdif <- left_join(bdif,prob_annot,by = "species")
+i90 <- filter(spp.ind,year == 1990)
+bdif <- left_join(i90,bdif,by = "species")
+bdif$lab = paste(round((exp(bdif$CL50)-1)*100,1),":",round((exp(bdif$CL5)-1)*100,1),"-",round((exp(bdif$CL95)-1)*100,1),"p =",round(bdif$mean,2))
+bdif$lind <- bdif$lind+0.1
+b_mu <- filter(b_mu,est == "B")
+
+npag <- ceiling(nrow(betadif)/9)
 pdf("output/changepoint_graphs.pdf",
-    height = 11,width = 8.5)
+    height = 8.5,width = 11)
 for(ij in 1:npag){
-trajs <- ggplot(data = b_mu,aes(x = year,y = mean,group = est))+
+trajs <- ggplot(data = b_mu,aes(x = year,y = mean))+
+  geom_pointrange(data = spp.ind,inherit.aes = FALSE,aes(x = year,y = lind,ymax = log(uci.raw),ymin = log(lci.raw)),alpha = 0.2, size = 0.5)+
   geom_ribbon(aes(ymin = CL2.5,ymax = CL97.5,fill = est),alpha = 0.2)+
   geom_line(aes(colour = est))+
   scale_color_viridis_d(aesthetics = c("colour","fill"),direction = -1,end = 0.8,begin = 0.2)+
-  facet_wrap_paginate(facets = ~species,scales = "free_y",nrow = 4,ncol = 3,page = ij)
+  geom_text(data = bdif,inherit.aes = FALSE,aes(x = year,y = lind,label = lab))+
+  facet_wrap_paginate(facets = ~species,scales = "free_y",nrow = 3,ncol = 3,page = ij)
 print(trajs)
 }
 dev.off()
