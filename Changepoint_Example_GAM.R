@@ -38,7 +38,7 @@ sps = unique(indicesraw$species)
 nyears_recent = 10
 
 jj = 0
-for(ss in sps){
+for(ss in sps[464:length(sps)]){
   jj = jj+1
   
   wss = which(indicesraw$species == ss)
@@ -60,11 +60,11 @@ for(ss in sps){
   
   
   nknots = min(c(11,max(floor(nrow(tmpd)/3),3)))
-  if(ss %in% c("Cackling Goose","Greater White-fronted Goose")){nknots = 3} 
+  if(ss %in% c("Cackling Goose","Greater White-fronted Goose","Trumpeter Swan")){nknots = 4} 
   
   
   
-  form = as.formula(paste("lindex","~",
+  form = as.formula(paste("lind","~",
                           "s(year,k =",nknots,")"))
   
   
@@ -84,7 +84,7 @@ for(ss in sps){
   lindex = tmpd$lind
   preci = 1/(tmpd$lsd^2)  
   
-  preddat = data.frame(lindex = 1,
+  preddat = data.frame(lind = 1,
                        year = yrs)
   
   
