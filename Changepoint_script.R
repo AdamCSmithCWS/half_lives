@@ -67,7 +67,7 @@ for(sp in unique(spp.ind$species)){
               !is.na(lind))
   df <- df[order(df$yr),]
   stan_dat <- list(Y = nrow(df),
-                   Yb = 12,
+                   Yb = 15,#number of years in later-term trend analysis, could be 10, but that's a very short period of time with which to precisely estimate a trend
                    i = df$lind,
                    sdi = df$lsd,
                    sig_mean = 0,
@@ -113,6 +113,9 @@ b_ <- filter(out,parameter %in% c(paste0("B[",1:53,"]")))
 
 mu_ <- filter(out,parameter %in% c(paste0("mu[",1:53,"]")))
 
+beta_early <- filter(out,parameter %in% c(paste0("beta1")))
+beta_late <- filter(out,parameter %in% c(paste0("beta2")))
+
 source("utility_functions.R")
 b_ <- mutate(b_,yr = jags_dim(dat = b_, cl = "parameter",var = "B"),
              est = "B")
@@ -133,10 +136,35 @@ p_betaneg <- filter(out,parameter %in% c("beta_neg"))
 names(p_betaneg)[which(grepl(names(p_betaneg),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(p_betaneg)[which(grepl(names(p_betaneg),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
 names(betadif)[which(grepl(names(betadif),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(betadif)[which(grepl(names(betadif),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
 
+names(beta_early)[which(grepl(names(beta_early),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(beta_early)[which(grepl(names(beta_early),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
+names(beta_late)[which(grepl(names(beta_late),pattern = "%",fixed = T))] <- paste0("CL",gsub(names(beta_late)[which(grepl(names(beta_late),pattern = "%",fixed = T))] ,pattern = "%",replacement = "", fixed = TRUE))
+
 prob_annot <- select(p_betaneg,mean,species)
 bdif <- select(betadif,CL50,CL5,CL95,species)
 bdif <- left_join(bdif,prob_annot,by = "species")
-i90 <- filter(spp.ind,year == 1990)
+bdif$Difference_late_minus_early_trend <- round((exp(bdif$CL50)-1)*100,1)
+bdif$UCI_90_Difference_late_minus_early_trend <- round((exp(bdif$CL95)-1)*100,1)
+bdif$LCI_90_Difference_late_minus_early_trend <- round((exp(bdif$CL5)-1)*100,1)
+bdif$prob_decreasing_trend <- round(bdif$mean,2)
+
+beta_early$early_trend <- round((exp(beta_early$CL50)-1)*100,1)
+beta_early$LCI_early_trend <- round((exp(beta_early$CL5)-1)*100,1)
+beta_early$UCI_early_trend <- round((exp(beta_early$CL95)-1)*100,1)
+
+beta_late$late_trend <- round((exp(beta_late$CL50)-1)*100,1)
+beta_late$LCI_late_trend <- round((exp(beta_late$CL5)-1)*100,1)
+beta_late$UCI_late_trend <- round((exp(beta_late$CL95)-1)*100,1)
+
+bdif <- left_join(bdif,beta_early[,c("species","early_trend","LCI_early_trend","UCI_early_trend")])
+bdif <- left_join(bdif,beta_late[,c("species","late_trend","LCI_late_trend","UCI_late_trend")])
+
+
+write.csv(bdif[,c("species","Difference_late_minus_early_trend","LCI_90_Difference_late_minus_early_trend","UCI_90_Difference_late_minus_early_trend",
+                  "prob_decreasing_trend",
+                  "early_trend","LCI_early_trend","UCI_early_trend",
+                  "late_trend","LCI_late_trend","UCI_late_trend")],"output/Differences_in_Trends.csv",row.names = F)
+
+i90 <- filter(spp.ind,year == 1997)
 bdif <- left_join(i90,bdif,by = "species")
 bdif$lab = paste(round((exp(bdif$CL50)-1)*100,1),":",round((exp(bdif$CL5)-1)*100,1),"-",round((exp(bdif$CL95)-1)*100,1),"p =",round(bdif$mean,2))
 bdif$lind <- bdif$lind+0.1
