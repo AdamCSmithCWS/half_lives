@@ -38,7 +38,7 @@ sps = unique(indicesraw$species)
 nyears_recent = 10
 
 jj = 0
-for(ss in sps[464:length(sps)]){
+for(ss in sps[1:length(sps)]){
   jj = jj+1
   
   wss = which(indicesraw$species == ss)
@@ -153,6 +153,8 @@ for(ss in sps[464:length(sps)]){
     
 
 }
+
+save(list = c("out"),file = "output/temp_out.RData")
 
 names(out)[which(grepl(names(out),pattern = ".",fixed = T))] <- paste0(gsub(names(out)[which(grepl(names(out),pattern = ".",fixed = T))] ,pattern = ".",replacement = "_", fixed = TRUE))
 
